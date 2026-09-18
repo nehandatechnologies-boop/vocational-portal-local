@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:5000 https://*.onrender.com; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.gstatic.com;">
+    <title>Lecturer Dashboard - Mushagashe Vocational Training Centre</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/css/design-system.css">
+    <link rel="stylesheet" href="../assets/css/components.css">
+    <link rel="stylesheet" href="../assets/css/app-shell.css">
+    <style>
+        .sidebar-logo {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .sidebar-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <img src="../assets/images/mushagashe-logo.jpg" alt="Mushagashe VTC Logo">
+                </div>
+                <div class="sidebar-brand">
+                    <h1>Mushagashe VTC</h1>
+                    <p>Lecturer Portal</p>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">Main</div>
+                    <a href="#" class="nav-item active" data-page="students">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                        <span>My Students</span>
+                    </a>
+                    <a href="#" class="nav-item" data-page="results">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                        </svg>
+                        <span>Results</span>
+                    </a>
+                    <a href="#" class="nav-item" data-page="subjects">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                        </svg>
+                        <span>Subjects</span>
+                    </a>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Account</div>
+                    <a href="#" class="nav-item" data-page="profile">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        <span>Profile</span>
+                    </a>
+                    <a href="#" class="nav-item" data-page="privacy">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                        <span>Privacy & Security</span>
+                    </a>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="sidebar-user">
+                    <div class="sidebar-user-avatar" id="sidebarAvatar">L</div>
+                    <div class="sidebar-user-info">
+                        <div class="sidebar-user-name" id="sidebarUserName">Lecturer</div>
+                        <div class="sidebar-user-role" id="sidebarCourse">Course</div>
+                    </div>
+                </div>
+                <div class="sidebar-actions">
+                    <button class="sidebar-btn" id="changePasswordBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                        <span>Change Password</span>
+                    </button>
+                    <button class="sidebar-btn" id="logoutBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                        <span>Logout</span>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <header class="app-header">
+                <div class="header-left">
+                    <button class="menu-toggle" id="menuToggle">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                    <div>
+                        <h1 class="page-title">Lecturer Dashboard</h1>
+                        <p class="page-subtitle">Welcome back, <span id="lecturerName">Lecturer</span></p>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="header-search">
+                        <svg class="header-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <input type="text" placeholder="Search...">
+                    </div>
+                    <div class="header-actions">
+                        <button class="header-action-btn" id="themeToggle" title="Toggle Theme">
+                            <span>🌙</span>
+                        </button>
+                        <button class="header-action-btn" id="notificationBell" title="Notifications">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                            </svg>
+                            <span class="badge" id="notificationBadge" style="display: none;">0</span>
+                        </button>
+                        <div class="notification-panel" id="notificationPanel" style="display: none;">
+                            <div class="notification-header">
+                                <h4>Announcements</h4>
+                                <button class="notification-close" onclick="document.getElementById('notificationPanel').style.display='none'">&times;</button>
+                            </div>
+                            <div class="notification-content"></div>
+                        </div>
+                        <div class="header-divider"></div>
+                        <div class="header-profile">
+                            <div class="header-profile-avatar" id="headerAvatar">L</div>
+                            <div class="header-profile-info">
+                                <div class="header-profile-name" id="headerProfileName">Lecturer Name</div>
+                                <div class="header-profile-role">Lecturer</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <div class="page-content">
+                <!-- Students Page -->
+                <div id="students-page" class="page-section">
+                    <div class="page-header">
+                        <h1>My Students</h1>
+                        <p>View and manage students in your course</p>
+                    </div>
+                    <div class="dashboard-card">
+                        <div class="table-controls">
+                            <input type="text" id="studentSearch" placeholder="Search students..." class="input search-input">
+                            <select id="intakeFilter" class="select filter-select">
+                                <option value="">All Intakes</option>
+                            </select>
+                        </div>
+                        <div class="table-container">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Student Number</th>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Intake</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="students-table-body">
+                                    <tr>
+                                        <td colspan="5" class="text-center">Loading students...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Page -->
+                <div id="results-page" class="page-section hidden">
+                    <div class="page-header">
+                        <h1>Student Results</h1>
+                        <p>Manage and record student grades</p>
+                        <div class="page-actions">
+                            <button id="addResultBtn" class="btn btn-primary">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                                Add Result
+                            </button>
+                        </div>
+                    </div>
+                    <div class="dashboard-card">
+                        <div class="table-container">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Student</th>
+                                        <th>Course</th>
+                                        <th>Semester</th>
+                                        <th>Year</th>
+                                        <th>Assessment</th>
+                                        <th>Exam</th>
+                                        <th>Final</th>
+                                        <th>Grade</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="results-table-body">
+                                    <tr>
+                                        <td colspan="9" class="text-center">Loading results...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Subjects Page -->
+                <div id="subjects-page" class="page-section hidden">
+                    <div class="page-header">
+                        <h1>Subjects</h1>
+                        <p>Manage subjects in your course</p>
+                        <div class="page-actions">
+                            <button id="addSubjectBtn" class="btn btn-primary">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                                Add Subject
+                            </button>
+                        </div>
+                    </div>
+                    <div class="dashboard-card">
+                        <div class="table-container">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Subject Code</th>
+                                        <th>Subject Name</th>
+                                        <th>Credits</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="subjects-table-body">
+                                    <tr>
+                                        <td colspan="4" class="text-center">Loading subjects...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Profile Page -->
+                <div id="profile-page" class="page-section hidden">
+                    <div class="page-header">
+                        <h1>My Profile</h1>
+                        <p>Manage your personal information and account settings</p>
+                    </div>
+                    <div class="dashboard-card">
+                        <div class="profile-avatar-display">
+                            <div class="profile-avatar-large" id="profileAvatarLarge">L</div>
+                        </div>
+                        <form id="profileForm">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="form-label">Full Name</label>
+                                    <input type="text" id="profileFullName" class="input" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" id="profileEmail" class="input" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Phone</label>
+                                    <input type="tel" id="profilePhone" class="input">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Course</label>
+                                    <input type="text" id="profileCourse" class="input" readonly>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Update Profile</button>
+                        </form>
+                    </div>
+
+                    <div class="dashboard-card" style="margin-top: var(--space-6);">
+                        <div class="card-header">
+                            <h3>Change Password</h3>
+                        </div>
+                        <form id="passwordForm">
+                            <input type="text" id="username" name="username" autocomplete="username" style="display: none;">
+                            <div class="form-group">
+                                <label class="form-label required">Current Password</label>
+                                <input type="password" id="currentPassword" class="input" required autocomplete="current-password">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label required">New Password</label>
+                                <input type="password" id="newPassword" class="input" required minlength="6" autocomplete="new-password">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label required">Confirm New Password</label>
+                                <input type="password" id="confirmPassword" class="input" required minlength="6" autocomplete="new-password">
+                            </div>
+                            <button type="submit" class="btn btn-secondary">Change Password</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Privacy Page -->
+                <div id="privacy-page" class="page-section hidden">
+                    <div class="page-header">
+                        <h1>Privacy & Security</h1>
+                        <p>Manage your data protection preferences and privacy settings</p>
+                    </div>
+                    <div class="dashboard-card">
+                        <div class="card-header">
+                            <h3>Privacy Consent</h3>
+                        </div>
+                        <div id="privacyConsentSection">
+                            <div class="loading-state">Loading privacy settings...</div>
+                        </div>
+                    </div>
+                    <div class="dashboard-card" style="margin-top: var(--space-6);">
+                        <div class="card-header">
+                            <h3>Data Subject Rights</h3>
+                        </div>
+                        <div id="privacyRequestsSection">
+                            <div class="loading-state">Loading privacy requests...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Container -->
+    <div id="modal" class="modal-container" style="display: none;"></div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast-container" style="display: none;"></div>
+
+    <script src="../assets/js/lecturer-dashboard.js?v=2"></script>
+    <script>
+        // Sidebar toggle functionality
+        const menuToggle = document.getElementById('menuToggle');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        menuToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('open');
+            sidebarOverlay.classList.toggle('show');
+        });
+
+        sidebarOverlay.addEventListener('click', () => {
+            sidebar.classList.remove('open');
+            sidebarOverlay.classList.remove('show');
+        });
+
+        // Navigation
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                const page = item.dataset.page;
+                
+                // Update active state
+                document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+                item.classList.add('active');
+                
+                // Show/hide pages
+                document.querySelectorAll('.page-section').forEach(section => section.classList.add('hidden'));
+                document.getElementById(`${page}-page`).classList.remove('hidden');
+                
+                // Close mobile sidebar
+                if (window.innerWidth <= 1024) {
+                    sidebar.classList.remove('open');
+                    sidebarOverlay.classList.remove('show');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

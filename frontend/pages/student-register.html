@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Registration - Mushagashe Vocational Training Centre</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/css/design-system.css">
+    <link rel="stylesheet" href="../assets/css/components.css">
+    <style>
+        .disabled-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--primary-50) 0%, var(--surface) 50%, var(--accent-50) 100%);
+            padding: var(--space-8);
+        }
+
+        .disabled-card {
+            max-width: 500px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-2xl);
+            padding: var(--space-8);
+            text-align: center;
+        }
+
+        .disabled-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto var(--space-6);
+            background: var(--gray-100);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .disabled-icon svg {
+            width: 40px;
+            height: 40px;
+            color: var(--text-secondary);
+        }
+
+        .disabled-title {
+            font-size: var(--text-xl);
+            font-weight: var(--font-bold);
+            color: var(--text-primary);
+            margin-bottom: var(--space-3);
+        }
+
+        .disabled-message {
+            font-size: var(--text-base);
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: var(--space-6);
+        }
+
+        .disabled-contact {
+            padding: var(--space-4);
+            background: var(--gray-50);
+            border-radius: var(--radius-lg);
+            margin-bottom: var(--space-6);
+        }
+
+        .disabled-contact p {
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+            margin: var(--space-2) 0;
+        }
+
+        .disabled-contact strong {
+            color: var(--text-primary);
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            color: var(--primary-600);
+            text-decoration: none;
+            font-size: var(--text-sm);
+            font-weight: var(--font-medium);
+        }
+
+        .back-link:hover {
+            color: var(--primary-700);
+        }
+    </style>
+</head>
+<body>
+    <div class="disabled-page">
+        <div class="disabled-card">
+            <div class="disabled-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            </div>
+            <h1 class="disabled-title">Student Self-Registration Unavailable</h1>
+            <p class="disabled-message">
+                Student accounts are created exclusively by Mushagashe Vocational Training Centre administration. 
+                Self-registration is not available.
+            </p>
+            <div class="disabled-contact">
+                <p><strong>To obtain your login credentials, please contact:</strong></p>
+                <p>Administration Office</p>
+                <p>support@mushagashe.edu</p>
+                <p>+263 77 838 7971</p>
+            </div>
+            <a href="student-login.html" class="back-link">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+                <span>Back to Student Login</span>
+            </a>
+        </div>
+    </div>
+</body>
+</html>

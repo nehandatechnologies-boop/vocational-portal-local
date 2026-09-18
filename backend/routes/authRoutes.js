@@ -1,0 +1,102 @@
+const express = require('express');
+const router = express.Router();
+const { body } = require('express-validator');
+const authController = require('../controllers/authController');
+const studentController = require('../controllers/studentController');
+const studentControllerSupabase = require('../controllers/studentControllerSupabase');
+const approvalController = require('../controllers/approvalController');
+const { authenticate } = require('../middleware/auth');
+const { requirePermission } = require('../middleware/rbac');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Configure multer for profile picture uploads (memory storage for Supabase upload)
+const profilePictureUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: function (req, file, cb) {
+    const allowedTypes = /jpeg|jpg|png|gif/;
+    const extname = allowedTypes.test(file.originalname.toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (extname && mimetype) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only images are allowed (jpeg, jpg, png, gif)'));
+    }
+  }
+});
+
+// Validation middleware
+const validateLogin = [
+  body('email').optional().isEmail().withMessage('Invalid email'),
+  body('password').notEmpty().withMessage('Password is required'),
+  body('student_number').optional().notEmpty().withMessage('Student number is required')
+];
+
+// Admin login
+router.post('/admin/login', validateLogin, authController.adminLogin);
+
+// Lecturer login
+router.post('/lecturer/login', validateLogin, authController.lecturerLogin);
+
+// Student login
+router.post('/student/login', validateLogin, authController.studentLogin);
+
+// Student registration with Supabase Auth - REMOVED - Admin only
+// router.post('/student/register-supabase', studentControllerSupabase.registerStudentSupabase);
+
+// Lecturer creation with Supabase Auth (requires lecturers.create permission)
+router.post('/lecturer/create-supabase', authenticate, requirePermission('lecturers.create'), studentControllerSupabase.createLecturerSupabase);
+
+// Get current user profile (authenticated)
+router.get('/profile', authenticate, authController.getProfile);
+
+// Get current user's profile picture URL (authenticated)
+router.get('/profile-picture', authenticate, authController.getProfilePicture);
+
+// Check if user must change password (authenticated)
+router.get('/check-password-change-required', authenticate, authController.checkPasswordChangeRequired);
+
+// Update profile (authenticated)
+router.put('/profile', authenticate, authController.updateProfile);
+
+// Change password (authenticated)
+router.put('/change-password', authenticate, authController.changePassword);
+
+// Request password reset (student)
+router.post('/student/reset-password', authController.requestStudentPasswordReset);
+
+// Request password reset (lecturer)
+router.post('/lecturer/reset-password', authController.requestLecturerPasswordReset);
+
+// Upload own profile picture (authenticated)
+router.post('/profile-picture', authenticate, profilePictureUpload.single('profilePicture'), studentController.uploadProfilePicture);
+
+// Delete own profile picture (authenticated)
+router.delete('/profile-picture', authenticate, studentController.deleteProfilePicture);
+
+// Request password reset (generic)
+router.post('/forgot-password', authController.requestPasswordReset);
+
+// Request admin password reset (SUPER_ADMIN only)
+router.post('/admin/reset-password', authenticate, authController.requestAdminPasswordReset);
+
+// Reset password with token
+router.post('/reset-password', authController.resetPassword);
+
+// Logout (authenticated)
+router.post('/logout', authenticate, authController.logout);
+
+// Admin approval routes (require students.approve permission)
+router.get('/admin/pending-accounts', authenticate, requirePermission('students.approve'), approvalController.getPendingAccounts);
+router.get('/admin/accounts', authenticate, requirePermission('students.view'), approvalController.getAllAccounts);
+router.post('/admin/accounts/:id/approve', authenticate, requirePermission('students.approve'), approvalController.approveAccount);
+router.post('/admin/accounts/:id/reject', authenticate, requirePermission('students.approve'), approvalController.rejectAccount);
+router.post('/admin/accounts/:id/suspend', authenticate, requirePermission('students.suspend'), approvalController.suspendAccount);
+router.post('/admin/accounts/:id/reactivate', authenticate, requirePermission('students.suspend'), approvalController.reactivateAccount);
+
+module.exports = router;

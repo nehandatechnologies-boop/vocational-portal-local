@@ -1,0 +1,714 @@
+const bcrypt = require('bcryptjs');
+const User = require('../models/User');
+const { generateToken } = require('../middleware/auth');
+const { generateToken: generateEmailToken, sendVerificationEmail, sendPasswordResetEmail } = require('../config/email');
+const { supabase, isConfigured: supabaseConfigured } = require('../config/supabaseAuth');
+const Permission = require('../models/Permission');
+
+// Admin login
+const adminLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    console.log('[AUTH.ADMIN_LOGIN] Attempting admin login');
+    console.log('[AUTH.ADMIN_LOGIN] Email:', email);
+
+    // Validation
+    if (!email || !password) {
+      console.log('[AUTH.ADMIN_LOGIN] Missing email or password');
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    // Find admin by email
+    const user = await User.findByEmail(email);
+
+    if (!user) {
+      console.log('[AUTH.ADMIN_LOGIN] User not found for email:', email);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    console.log('[AUTH.ADMIN_LOGIN] User found:', JSON.stringify({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      status: user.status
+    }));
+
+    // Check if user is an admin (support both 'admin' and new RBAC roles)
+    const isAdmin = user.role === 'admin' ||
+                   user.role === 'super_admin' ||
+                   user.role === 'SUPER_ADMIN' ||
+                   user.role === 'ACADEMIC_ADMIN' ||
+                   user.role === 'FINANCE_ADMIN' ||
+                   user.role === 'ADMISSIONS_ADMIN' ||
+                   user.role === 'LECTURER_ADMIN';
+
+    if (!isAdmin) {
+      console.log('[AUTH.ADMIN_LOGIN] User is not an admin. Role:', user.role);
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    if (user.status !== 'active') {
+      console.log('[AUTH.ADMIN_LOGIN] Account not active. Status:', user.status);
+      if (user.status === 'suspended') {
+        return res.status(403).json({ error: 'Your administrator account has been suspended. Please contact the Super Administrator.' });
+      }
+      return res.status(403).json({ error: 'Account is not active' });
+    }
+
+    // Verify password
+    const isPasswordValid = bcrypt.compareSync(password, user.password);
+
+    if (!isPasswordValid) {
+      console.log('[AUTH.ADMIN_LOGIN] Password validation failed');
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    console.log('[AUTH.ADMIN_LOGIN] Password validation successful');
+
+    // Check if user must change password
+    const mustChangePassword = user.must_change_password === 1;
+
+    // Generate token
+    const token = generateToken(user);
+
+    // Get user permissions based on role
+    const permissions = await Permission.findByRole(user.role);
+
+    // Return user data without password
+    const { password: _, ...userWithoutPassword } = user;
+
+    console.log('[AUTH.ADMIN_LOGIN] Login successful for:', user.email);
+
+    res.json({
+      token,
+      user: userWithoutPassword,
+      permissions,
+      must_change_password: mustChangePassword
+    });
+  } catch (error) {
+    console.error('[AUTH.ADMIN_LOGIN] Error:', error);
+    res.status(500).json({ error: 'Login failed' });
+  }
+};
+
+// Lecturer login (hybrid: tries Supabase Auth first, falls back to custom JWT)
+const lecturerLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Trim whitespace from inputs
+    const trimmedEmail = email?.trim();
+    const trimmedPassword = password?.trim();
+
+    // Validation
+    if (!trimmedEmail || !trimmedPassword) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    // Find lecturer by email
+    const user = await User.findByEmail(trimmedEmail);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    if (user.role !== 'lecturer' && user.role !== 'instructor') {
+      return res.status(403).json({ error: 'Lecturer access required' });
+    }
+
+    // Check account status - NEW: Admin approval system
+    if (user.status === 'pending') {
+      return res.status(403).json({ 
+        error: 'Your account is awaiting administrator approval. Please contact Mushagashe administration if you require assistance.',
+        code: 'ACCOUNT_PENDING_APPROVAL'
+      });
+    }
+
+    if (user.status === 'rejected') {
+      return res.status(403).json({ 
+        error: 'Your account registration has been rejected. Please contact Mushagashe administration.',
+        code: 'ACCOUNT_REJECTED'
+      });
+    }
+
+    if (user.status === 'suspended') {
+      return res.status(403).json({ error: 'Account is suspended' });
+    }
+
+    if (user.status !== 'active') {
+      return res.status(403).json({ error: 'Account is not active' });
+    }
+
+    // Try Supabase Auth first if auth_type is 'supabase' and Supabase is configured
+    if (user.auth_type === 'supabase' && supabaseConfigured) {
+      try {
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email: trimmedEmail,
+          password: trimmedPassword
+        });
+
+        if (!authError && authData.user) {
+          // Supabase Auth successful - email confirmation no longer required
+          const { password: _, ...userWithoutPassword } = user;
+          
+          return res.json({
+            token: authData.session.access_token,
+            refresh_token: authData.session.refresh_token,
+            auth_type: 'supabase',
+            user: userWithoutPassword
+          });
+        }
+      } catch (supabaseError) {
+        console.log('Supabase auth failed, trying custom auth:', supabaseError.message);
+      }
+    }
+
+    // Fall back to custom JWT for users with auth_type 'custom'
+    // Email verification check REMOVED - no longer required
+
+    // Verify password with bcrypt
+    const isPasswordValid = bcrypt.compareSync(trimmedPassword, user.password);
+    
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Generate custom JWT token
+    const token = generateToken(user);
+
+    // Return user data without password
+    const { password: _, ...userWithoutPassword } = user;
+
+    res.json({
+      token,
+      auth_type: 'custom',
+      user: userWithoutPassword
+    });
+  } catch (error) {
+    console.error('Lecturer login error:', error);
+    res.status(500).json({ error: 'Login failed' });
+  }
+};
+
+// Student login (hybrid: tries Supabase Auth first, falls back to custom JWT)
+const studentLogin = async (req, res) => {
+  try {
+    const { student_number, password } = req.body;
+
+    // Trim whitespace from inputs
+    const trimmedStudentNumber = student_number?.trim();
+    const trimmedPassword = password?.trim();
+
+    // Validation
+    if (!trimmedStudentNumber || !trimmedPassword) {
+      return res.status(400).json({ error: 'Student number and password are required' });
+    }
+
+    // Find student by student number
+    const user = await User.findByStudentNumber(trimmedStudentNumber);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    if (user.role !== 'student') {
+      return res.status(403).json({ error: 'Student access required' });
+    }
+
+    // Check account status - NEW: Admin approval system
+    if (user.status === 'pending') {
+      return res.status(403).json({ 
+        error: 'Your account is awaiting administrator approval. Please contact Mushagashe administration if you require assistance.',
+        code: 'ACCOUNT_PENDING_APPROVAL'
+      });
+    }
+
+    if (user.status === 'rejected') {
+      return res.status(403).json({ 
+        error: 'Your account registration has been rejected. Please contact Mushagashe administration.',
+        code: 'ACCOUNT_REJECTED'
+      });
+    }
+
+    if (user.status === 'suspended') {
+      return res.status(403).json({ error: 'Account is suspended' });
+    }
+
+    if (user.status !== 'active') {
+      return res.status(403).json({ error: 'Account is not active' });
+    }
+
+    // Try Supabase Auth first if user has email and auth_type is 'supabase' and Supabase is configured
+    if (user.email && user.auth_type === 'supabase' && supabaseConfigured) {
+      try {
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email: user.email,
+          password: trimmedPassword
+        });
+
+        if (!authError && authData.user) {
+          // Supabase Auth successful - email confirmation no longer required
+          const { password: _, ...userWithoutPassword } = user;
+          
+          return res.json({
+            token: authData.session.access_token,
+            refresh_token: authData.session.refresh_token,
+            auth_type: 'supabase',
+            user: userWithoutPassword
+          });
+        }
+      } catch (supabaseError) {
+        console.log('Supabase auth failed, trying custom auth:', supabaseError.message);
+      }
+    }
+
+    // Fall back to custom JWT for users without email or if Supabase Auth failed
+    // Email verification check REMOVED - no longer required
+
+    // Verify password with bcrypt
+    const isPasswordValid = bcrypt.compareSync(trimmedPassword, user.password);
+    
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Check if user must change password
+    const mustChangePassword = user.must_change_password === 1;
+
+    // Generate custom JWT token
+    const token = generateToken(user);
+
+    // Return user data without password
+    const { password: _, ...userWithoutPassword } = user;
+
+    res.json({
+      token,
+      auth_type: 'custom',
+      user: userWithoutPassword,
+      must_change_password: mustChangePassword
+    });
+  } catch (error) {
+    console.error('Student login error:', error);
+    res.status(500).json({ error: 'Login failed' });
+  }
+};
+
+// Get current user profile
+const getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const { password: _, ...userWithoutPassword } = user;
+
+    res.json(userWithoutPassword);
+  } catch (error) {
+    console.error('Get profile error:', error);
+    res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+};
+
+// Check if user must change password
+const checkPasswordChangeRequired = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const mustChangePassword = user.must_change_password === 1;
+
+    res.json({ must_change_password: mustChangePassword });
+  } catch (error) {
+    console.error('Check password change required error:', error);
+    res.status(500).json({ error: 'Failed to check password change requirement' });
+  }
+};
+const getProfilePicture = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Return profile picture URL or null if not set
+    res.json({ 
+      profile_picture_url: user.profile_picture_url || null 
+    });
+  } catch (error) {
+    console.error('Get profile picture error:', error);
+    res.status(500).json({ error: 'Failed to fetch profile picture' });
+  }
+};
+
+// Update profile
+const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      full_name, phone, gender, national_id, date_of_birth,
+      address, guardian_name, guardian_phone
+    } = req.body;
+
+    const updateData = {
+      full_name, phone, gender, national_id, date_of_birth,
+      address, guardian_name, guardian_phone
+    };
+
+    // Remove undefined values
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined) {
+        delete updateData[key];
+      }
+    });
+
+    await User.update(userId, updateData);
+
+    const updatedUser = await User.findById(userId);
+    const { password: _, ...userWithoutPassword } = updatedUser;
+
+    res.json(userWithoutPassword);
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+};
+
+// Change password
+const changePassword = async (req, res) => {
+  try {
+    console.log('[CHANGE-PASSWORD] Change password request - User ID:', req.user?.id, 'Role:', req.user?.role);
+    const userId = req.user.id;
+    const { current_password, new_password } = req.body;
+
+    console.log('[CHANGE-PASSWORD] Passwords provided:', { current_password: !!current_password, new_password: !!new_password });
+
+    if (!current_password || !new_password) {
+      return res.status(400).json({ error: 'Current password and new password are required' });
+    }
+
+    if (new_password.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters' });
+    }
+
+    // Get current user
+    console.log('[CHANGE-PASSWORD] Fetching user from database...');
+    const user = await User.findById(userId);
+    console.log('[CHANGE-PASSWORD] User found:', user ? 'yes' : 'no');
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log('[CHANGE-PASSWORD] User ID from DB:', user.id);
+    console.log('[CHANGE-PASSWORD] User has password field:', !!user.password);
+
+    // Verify current password
+    console.log('[CHANGE-PASSWORD] Verifying current password...');
+    const isPasswordValid = bcrypt.compareSync(current_password, user.password);
+    console.log('[CHANGE-PASSWORD] Password valid:', isPasswordValid);
+    
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    // Hash new password
+    console.log('[CHANGE-PASSWORD] Hashing new password...');
+    const hashedPassword = bcrypt.hashSync(new_password, 10);
+
+    // Update password and clear must_change_password flag
+    console.log('[CHANGE-PASSWORD] Updating password in database...');
+    await User.update(userId, { password: hashedPassword, must_change_password: 0 });
+    console.log('[CHANGE-PASSWORD] Password updated successfully');
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('[CHANGE-PASSWORD] Change password error:', error);
+    console.error('[CHANGE-PASSWORD] Error message:', error.message);
+    console.error('[CHANGE-PASSWORD] Error code:', error.code);
+    console.error('[CHANGE-PASSWORD] Error stack:', error.stack);
+    res.status(500).json({ error: 'Failed to change password' });
+  }
+};
+
+// Request password reset (student) - DISABLED - Admin only
+const requestStudentPasswordReset = async (req, res) => {
+  try {
+    // Password reset is now admin-only. Direct user reset has been disabled.
+    return res.status(403).json({ 
+      error: 'Password reset has been disabled for security. Please contact Mushagashe administration to reset your password.',
+      code: 'PASSWORD_RESET_DISABLED'
+    });
+  } catch (error) {
+    console.error('Request student password reset error:', error);
+    res.status(500).json({ error: 'Failed to process password reset request' });
+  }
+};
+
+// Request password reset (lecturer) - DISABLED - Admin only
+const requestLecturerPasswordReset = async (req, res) => {
+  try {
+    // Password reset is now admin-only. Direct user reset has been disabled.
+    return res.status(403).json({ 
+      error: 'Password reset has been disabled for security. Please contact Mushagashe administration to reset your password.',
+      code: 'PASSWORD_RESET_DISABLED'
+    });
+  } catch (error) {
+    console.error('Request lecturer password reset error:', error);
+    res.status(500).json({ error: 'Failed to process password reset request' });
+  }
+};
+
+// Verify email
+const verifyEmail = async (req, res) => {
+  try {
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).json({ error: 'Verification token is required' });
+    }
+
+    // Find user by verification token
+    const { data: users } = await require('../config/supabase')
+      .from('users')
+      .select('*')
+      .eq('verification_token', token)
+      .single();
+
+    if (!users) {
+      return res.status(400).json({ error: 'Invalid verification token' });
+    }
+
+    // Check if token is expired
+    if (users.verification_token_expires && new Date(users.verification_token_expires) < new Date()) {
+      return res.status(400).json({ error: 'Verification token has expired' });
+    }
+
+    // Mark email as verified and clear token
+    await require('../config/supabase')
+      .from('users')
+      .update({ 
+        email_verified: true,
+        verification_token: null,
+        verification_token_expires: null
+      })
+      .eq('id', users.id);
+
+    res.json({ message: 'Email verified successfully. You can now log in.' });
+  } catch (error) {
+    console.error('Verify email error:', error);
+    res.status(500).json({ error: 'Failed to verify email' });
+  }
+};
+
+// Resend verification email
+const resendVerificationEmail = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!user.email) {
+      return res.status(400).json({ error: 'No email address associated with this account' });
+    }
+
+    if (user.email_verified) {
+      return res.status(400).json({ error: 'Email is already verified' });
+    }
+
+    // Generate new verification token
+    const verificationToken = generateEmailToken();
+    const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    // Update user with new token
+    await User.update(user.id, {
+      verification_token: verificationToken,
+      verification_token_expires: verificationTokenExpires
+    });
+
+    // Send verification email
+    const emailSent = await sendVerificationEmail(user.email, verificationToken);
+
+    if (emailSent) {
+      res.json({ message: 'Verification email sent successfully' });
+    } else {
+      res.status(500).json({ error: 'Failed to send verification email' });
+    }
+  } catch (error) {
+    console.error('Resend verification email error:', error);
+    res.status(500).json({ error: 'Failed to resend verification email' });
+  }
+};
+
+// Request password reset (generic) - DISABLED - Admin only
+const requestPasswordReset = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Password reset is now admin-only. Direct user reset has been disabled.
+    return res.status(403).json({ 
+      error: 'Password reset has been disabled for security. Please contact Mushagashe administration to reset your password.',
+      code: 'PASSWORD_RESET_DISABLED'
+    });
+  } catch (error) {
+    console.error('Request password reset error:', error);
+    res.status(500).json({ error: 'Failed to process password reset request' });
+  }
+};
+
+// Request password reset (admin only - SUPER_ADMIN can reset any admin password)
+const requestAdminPasswordReset = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Only SUPER_ADMIN can reset admin passwords
+    if (req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Only Super Administrator can reset admin passwords' });
+    }
+
+    // Find user by email
+    const user = await User.findByEmail(email);
+    
+    if (!user) {
+      // Don't reveal whether email exists
+      return res.json({ message: 'If an administrator account exists with this email, password reset instructions will be sent.' });
+    }
+
+    // Check if user is an admin
+    const isAdmin = user.role === 'admin' || 
+                   user.role === 'super_admin' ||
+                   user.role === 'SUPER_ADMIN' ||
+                   user.role === 'ACADEMIC_ADMIN' ||
+                   user.role === 'FINANCE_ADMIN' ||
+                   user.role === 'ADMISSIONS_ADMIN' ||
+                   user.role === 'LECTURER_ADMIN';
+
+    if (!isAdmin) {
+      return res.json({ message: 'If an administrator account exists with this email, password reset instructions will be sent.' });
+    }
+
+    // Generate reset token
+    const resetToken = generateEmailToken();
+    const resetTokenExpires = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 hour
+
+    // Update user with reset token
+    await User.update(user.id, {
+      reset_password_token: resetToken,
+      reset_password_expires: resetTokenExpires
+    });
+
+    // Send password reset email
+    const emailSent = await sendPasswordResetEmail(email, resetToken);
+
+    if (emailSent) {
+      res.json({ message: 'Password reset instructions sent successfully' });
+    } else {
+      res.status(500).json({ error: 'Failed to send password reset email' });
+    }
+  } catch (error) {
+    console.error('Request admin password reset error:', error);
+    res.status(500).json({ error: 'Failed to process password reset request' });
+  }
+};
+
+// Reset password with token
+const resetPassword = async (req, res) => {
+  try {
+    const { token, new_password, confirm_password } = req.body;
+
+    if (!token || !new_password || !confirm_password) {
+      return res.status(400).json({ error: 'Token, new password, and confirm password are required' });
+    }
+
+    if (new_password !== confirm_password) {
+      return res.status(400).json({ error: 'Passwords do not match' });
+    }
+
+    if (new_password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    // Find user by reset token
+    const { data: users } = await require('../config/supabase')
+      .from('users')
+      .select('*')
+      .eq('reset_password_token', token)
+      .single();
+
+    if (!users) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+
+    // Check if token is expired
+    if (users.reset_password_expires && new Date(users.reset_password_expires) < new Date()) {
+      return res.status(400).json({ error: 'Reset token has expired' });
+    }
+
+    // Hash new password
+    const hashedPassword = bcrypt.hashSync(new_password, 10);
+
+    // Update password and clear reset token
+    await require('../config/supabase')
+      .from('users')
+      .update({ 
+        password: hashedPassword,
+        reset_password_token: null,
+        reset_password_expires: null
+      })
+      .eq('id', users.id);
+
+    res.json({ message: 'Password reset successfully. You can now log in with your new password.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+};
+
+// Logout
+const logout = async (req, res) => {
+  try {
+    // For JWT-based auth, logout is primarily client-side
+    // The token will be removed from localStorage
+    // Optionally, we could implement a token blacklist here
+    
+    res.json({ message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ error: 'Logout failed' });
+  }
+};
+
+module.exports = {
+  adminLogin,
+  lecturerLogin,
+  studentLogin,
+  getProfile,
+  getProfilePicture,
+  updateProfile,
+  changePassword,
+  requestStudentPasswordReset,
+  requestLecturerPasswordReset,
+  verifyEmail,
+  resendVerificationEmail,
+  requestPasswordReset,
+  requestAdminPasswordReset,
+  resetPassword,
+  logout,
+  checkPasswordChangeRequired
+};
